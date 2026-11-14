@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Game Shelf</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a single shelf column — summary header with platform counts, a toolbar, then a dense list of titles with platform chips and play status */
+:root{
+  --bg:#f2f3f8; --surface:#ffffff; --ink:#1c1f33; --muted:#666b86; --line:#dfe1ec;
+  --accent:#5b4bdb; --accent-ink:#ffffff; --warn:#b86a00; --warn-bg:#fff3df;
+  --sw:#d93b3b; --steam:#2a6db0; --epic:#3d3d4d; --gog:#8a3fc4; --amz:#c77700; --ps:#1f5fd1; --hum:#c2412d; --ea:#d6336c; --itch:#e0435a;
+  --star:#d99a00;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Figtree",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#13141f; --surface:#1c1e2d; --ink:#eceefb; --muted:#9a9fbd; --line:#2d3046;
+  --accent:#9d92ff; --accent-ink:#13141f; --warn:#ffbe5c; --warn-bg:#3a2c12;
+  --sw:#ff6b6b; --steam:#6fa8e8; --epic:#b4b4c8; --gog:#c48bf0; --amz:#f0a640; --ps:#7aa5ff; --hum:#ff8a70; --ea:#ff7aa8; --itch:#ff7f8e; --star:#ffc94d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13141f; --surface:#1c1e2d; --ink:#eceefb; --muted:#9a9fbd; --line:#2d3046;
+  --accent:#9d92ff; --accent-ink:#13141f; --warn:#ffbe5c; --warn-bg:#3a2c12;
+  --sw:#ff6b6b; --steam:#6fa8e8; --epic:#b4b4c8; --gog:#c48bf0; --amz:#f0a640; --ps:#7aa5ff; --hum:#ff8a70; --ea:#ff7aa8; --itch:#ff7f8e; --star:#ffc94d; color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:860px;margin:0 auto;padding-inline:16px;padding-block:28px 64px;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,6vw,40px);line-height:1.05;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0}
+.count{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.plats{display:flex;flex-wrap:wrap;gap:8px}
+.pf{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font:600 13px var(--body);cursor:pointer}
+.pf .dot{width:9px;height:9px;border-radius:50%;background:var(--c,var(--muted))}
+.pf .count{color:var(--muted);font-size:12px}
+.pf[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pf[aria-pressed="true"] .count{color:inherit;opacity:.75}
+.pf:disabled{opacity:.45;cursor:default}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+input,select,button{font:inherit;color:inherit}
+.tools input[type=search]{flex:1 1 220px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.tools select{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.btn{padding:9px 14px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tg{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);cursor:pointer;padding:0 4px}
+.add{display:flex;flex-wrap:wrap;gap:8px;padding:14px;border:1px dashed var(--line);border-radius:12px;background:var(--surface)}
+.add input{flex:1 1 220px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.add select{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.t{min-width:0}
+.t b{font-weight:600}
+.t .note{display:block;color:var(--muted);font-size:13px}
+.tb{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:left;cursor:pointer}
+.tb::after{content:"▸";display:inline-block;margin-left:6px;color:var(--muted);font-size:12px;transition:transform .15s}
+.tb[aria-expanded="true"]::after{transform:rotate(90deg)}
+.tb:hover b{text-decoration:underline}
+.tb:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.desc{grid-column:1/-1;order:4;margin:-2px 0 2px;color:var(--muted);font-size:14px;line-height:1.45;max-width:70ch}
+.desc p{margin:0}
+.review{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);color:var(--ink)}
+.desc .review:first-child{margin-top:0;padding-top:0;border-top:0}
+.rate{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.stars{display:inline-flex;gap:3px}
+.star{position:relative;width:26px;height:26px;flex:none}
+.star .sg{position:absolute;inset:0;background:color-mix(in srgb,var(--muted) 35%,transparent);
+  -webkit-mask:var(--starmask) center/contain no-repeat;mask:var(--starmask) center/contain no-repeat}
+.star .sg i{display:block;height:100%;width:var(--f,0%);background:var(--star)}
+.star button{position:absolute;top:0;height:100%;width:50%;background:none;border:0;padding:0;cursor:pointer;border-radius:4px}
+.star button:first-of-type{left:0}
+.star button:last-of-type{left:50%}
+.rv-val{font:500 13px var(--mono);color:var(--muted);min-width:9ch}
+.rv-clear{border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px;text-decoration:underline}
+.rv-clear:hover{color:var(--ink)}
+.rv{width:100%;min-height:76px;resize:vertical;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;line-height:1.45}
+.rv-label{font-size:13px;font-weight:600;color:var(--muted)}
+.rt{margin-left:8px;font:500 12px var(--mono);color:var(--star);white-space:nowrap}
+.nt{margin-left:6px;font-size:12px;color:var(--muted);white-space:nowrap}
+:root{--starmask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.8l3.1 6.5 7.1.9-5.2 5 1.3 7.1L12 17.9l-6.3 3.4 1.3-7.1-5.2-5 7.1-.9z'/%3E%3C/svg%3E")}
+#app{display:contents}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.sync{font:600 12px var(--body);padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);white-space:nowrap}
+.sync[data-state="warn"]{color:var(--warn);background:var(--warn-bg);border-color:transparent}
+.connect{display:flex;flex-direction:column;gap:10px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface);max-width:520px}
+.connect label{font-size:13px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.connect input{padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-weight:400;color:var(--ink)}
+.connect .err{color:var(--warn);font-weight:600;margin:0}
+.linkbtn{border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0;font-size:13px}
+.chips{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.chip{font:500 11px var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:6px;color:var(--c);border:1px solid currentColor;white-space:nowrap}
+.flag{font:600 11px var(--body);letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:6px;color:var(--warn);background:var(--warn-bg);margin-left:6px;white-space:nowrap}
+.st{padding:5px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:13px;max-width:118px}
+.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;padding:4px 6px;border-radius:6px}
+.x:hover{color:var(--ink)}
+.confirm{color:var(--warn);font-weight:600}
+.empty{padding:28px 18px;color:var(--muted);text-align:center}
+.foot{color:var(--muted);font-size:13px}
+@media (max-width:520px){.row{grid-template-columns:minmax(0,1fr) auto;}.row .chips{grid-column:1/-1;justify-content:flex-start;order:3}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hd">
+    <div>
+      <h1>Game Shelf</h1>
+      <p class="sub" id="sub" hidden><span class="count" id="total">0</span> games you own across every store and console</p>
+    </div>
+    <span class="sync" id="sync" role="status" hidden></span>
+  </header>
+
+  <form class="connect" id="connect" hidden>
+    <p style="margin:0">Connect this device to your private game data on GitHub. You only do this once per browser.</p>
+    <label>GitHub username<input id="gh-owner" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>
+    <label>Access token<input id="gh-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" required></label>
+    <p class="err" id="connect-err" hidden></p>
+    <button class="btn" type="submit" id="connect-btn">Connect</button>
+  </form>
+
+  <div id="app" hidden>
+
+  <div class="plats" id="plats" role="group" aria-label="Filter by platform"></div>
+
+  <div class="tools">
+    <input type="search" id="q" placeholder="Search titles" aria-label="Search titles">
+    <select id="status-filter" aria-label="Filter by status">
+      <option value="">Any status</option>
+      <option value="unplayed">Unplayed</option>
+      <option value="playing">Playing</option>
+      <option value="finished">Finished</option>
+      <option value="dropped">Dropped</option>
+    </select>
+    <label class="tg"><input type="checkbox" id="show-fam"> Family-shared</label>
+    <label class="tg"><input type="checkbox" id="show-plus"> PS Plus</label>
+    <label class="tg"><input type="checkbox" id="show-soft"> Software</label>
+    <button class="btn ghost" id="add-toggle" type="button">Add a game</button>
+    <button class="btn ghost" id="export" type="button">Export CSV</button>
+  </div>
+
+  <form class="add" id="add-form" hidden>
+    <input id="add-title" placeholder="Game title" aria-label="Game title" required>
+    <select id="add-plat" aria-label="Platform"></select>
+    <button class="btn" type="submit">Add</button>
+  </form>
+
+  <div class="list" id="list"></div>
+  <p class="foot"><span id="foot"></span> <button class="linkbtn" type="button" id="disconnect">Disconnect this device</button></p>
+  </div>
+</div>
+
+<script>
+let SEED=[];
+// Short description for each title, keyed by id. Shown when a title is clicked.
+let DESC={};
+const PLATS=[
+  {id:"switch",name:"Switch",c:"var(--sw)"},
+  {id:"steam",name:"Steam",c:"var(--steam)"},
+  {id:"epic",name:"Epic",c:"var(--epic)"},
+  {id:"gog",name:"GOG",c:"var(--gog)"},
+  {id:"humble",name:"Humble",c:"var(--hum)"},
+  {id:"ea",name:"EA app",c:"var(--ea)"},
+  {id:"itch",name:"itch.io",c:"var(--itch)"},
+  {id:"amazon",name:"Amazon",c:"var(--amz)"},
+  {id:"playstation",name:"PlayStation",c:"var(--ps)"},
+  {id:"steamfam",name:"Steam Family",c:"var(--muted)"},
+  {id:"psplus",name:"PS Plus",c:"var(--ps)"}
+];
+const P=Object.fromEntries(PLATS.map(p=>[p.id,p]));
+const KEY="game-shelf-v1";
+// Saved edits in this browser: {status:{id:s}, added:[game], removed:[id], ratings:{id:0.5..5}, reviews:{id:text}}
+let saved={status:{},added:[],removed:[],ratings:{},reviews:{}};
+try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s)saved={status:{},added:[],removed:[],ratings:{},reviews:{},...s}}catch(e){}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(saved))}catch(e){};markDirty()}
+let plat="",pendingDelete=null,games=[];
+const openDesc=new Set();
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const slug=s=>s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||("g-"+Date.now());
+const sortKey=t=>t.toLowerCase().replace(/^(the|a)\s+/,"");
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+const fmtRating=r=>r?`${r} / 5`:"Not rated";
+const hasNote=id=>!!(saved.reviews[id]||"").trim();
+// Fill for star n (1-5) at rating r: 0%, 50% or 100%
+const fillOf=(r,n)=>r>=n?"100%":r>=n-.5?"50%":"0%";
+function paintStars(box,r){box.querySelectorAll(".star").forEach((st,i)=>st.style.setProperty("--f",fillOf(r,i+1)))}
+function reviewHtml(g){
+  const r=saved.ratings[g.id]||0, id=esc(g.id);
+  const stars=[1,2,3,4,5].map(n=>`<span class="star" style="--f:${fillOf(r,n)}"><span class="sg"><i></i></span><button type="button" data-rate="${n-.5}" data-id="${id}" aria-label="${n-.5} stars" aria-pressed="${r===n-.5}"></button><button type="button" data-rate="${n}" data-id="${id}" aria-label="${n} star${n>1?"s":""}" aria-pressed="${r===n}"></button></span>`).join("");
+  return `<div class="review"><div class="rate"><span class="rv-label">My rating</span><span class="stars" data-stars="${id}" role="group" aria-label="Rating for ${esc(g.title)}">${stars}</span><span class="rv-val">${fmtRating(r)}</span>${r?`<button class="rv-clear" type="button" data-clear="${id}">Clear</button>`:""}</div><label class="rv-label" for="rv-${id}">My notes</label><textarea class="rv" id="rv-${id}" data-id="${id}" placeholder="Thoughts on this game…">${esc(saved.reviews[g.id]||"")}</textarea></div>`;
+}
+function build(){
+  const map=new Map();
+  [...SEED,...saved.added].forEach(g=>{
+    const ex=map.get(g.id);
+    if(ex)ex.platforms=[...new Set([...ex.platforms,...g.platforms])];
+    else map.set(g.id,{...g,platforms:[...g.platforms]});
+  });
+  games=[...map.values()].filter(g=>!saved.removed.includes(g.id)).map(g=>({...g,status:saved.status[g.id]||"unplayed"}));
+}
+$("#add-plat").innerHTML=PLATS.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+const BORROWED=["steamfam","psplus"];
+const ownedOf=g=>g.platforms.some(p=>!BORROWED.includes(p));
+function pool(){
+  const fam=$("#show-fam").checked, plus=$("#show-plus").checked, soft=$("#show-soft").checked;
+  return games.filter(g=>(soft||g.kind!=="software")&&(ownedOf(g)||(fam&&g.platforms.includes("steamfam"))||(plus&&g.platforms.includes("psplus"))));
+}
+function renderPlats(){
+  const vis=pool(), fam=$("#show-fam").checked, plus=$("#show-plus").checked;
+  if((!fam&&plat==="steamfam")||(!plus&&plat==="psplus"))plat="";
+  const counts={};vis.forEach(g=>g.platforms.forEach(p=>counts[p]=(counts[p]||0)+1));
+  $("#plats").innerHTML=`<button class="pf" type="button" data-p="" aria-pressed="${plat===""}"><span>All</span><span class="count">${vis.length}</span></button>`+
+    PLATS.filter(p=>(p.id!=="steamfam"||fam)&&(p.id!=="psplus"||plus)).map(p=>`<button class="pf" type="button" data-p="${p.id}" style="--c:${p.c}" aria-pressed="${plat===p.id}" ${counts[p.id]?"":"disabled"}><span class="dot"></span><span>${p.name}</span><span class="count">${counts[p.id]||"—"}</span></button>`).join("");
+}
+function render(){
+  build();
+  $("#total").textContent=games.filter(g=>g.kind!=="software"&&ownedOf(g)).length;
+  const vis=pool();
+  renderPlats();
+  const q=$("#q").value.trim().toLowerCase(), sf=$("#status-filter").value;
+  const rows=vis.filter(g=>(!plat||g.platforms.includes(plat))&&(!q||g.title.toLowerCase().includes(q))&&(!sf||g.status===sf))
+    .sort((a,b)=>sortKey(a.title).localeCompare(sortKey(b.title)));
+  $("#list").innerHTML=rows.length?rows.map(g=>{
+    const chips=g.platforms.map(p=>`<span class="chip" style="--c:${P[p]?.c||"var(--muted)"}">${esc(P[p]?.name||p)}</span>`).join("");
+    const sel=`<select class="st" data-id="${esc(g.id)}" aria-label="Status for ${esc(g.title)}">${["unplayed","playing","finished","dropped"].map(s=>`<option value="${s}" ${s===g.status?"selected":""}>${cap(s)}</option>`).join("")}</select>`;
+    const del=pendingDelete===g.id?`<button class="x confirm" type="button" data-del="${esc(g.id)}">Remove?</button>`:`<button class="x" type="button" data-ask="${esc(g.id)}" aria-label="Remove ${esc(g.title)}">✕</button>`;
+    const d=DESC[g.id], isOpen=openDesc.has(g.id), r=saved.ratings[g.id];
+    const marks=`${r?`<span class="rt" title="My rating">★ ${r}</span>`:""}<span class="nt" data-nt="${esc(g.id)}" title="Has notes" ${hasNote(g.id)?"":"hidden"}>✎ note</span>`;
+    const title=`<button class="tb" type="button" data-open="${esc(g.id)}" aria-expanded="${isOpen?"true":"false"}"><b>${esc(g.title)}</b></button>${marks}`;
+    return `<div class="row"><div class="t">${title}${g.kind==="software"?`<span class="flag">Software</span>`:""}${!ownedOf(g)?`<span class="flag">${g.platforms.includes("steamfam")?"Family-shared":"PS Plus"}</span>`:""}${g.note?`<span class="note">${esc(g.note)}</span>`:""}</div><div class="chips">${chips}</div><div style="display:flex;gap:4px;align-items:center">${sel}${del}</div>${isOpen?`<div class="desc">${d?`<p>${esc(d)}</p>`:""}${reviewHtml(g)}</div>`:""}</div>`;
+  }).join(""):`<div class="empty">No titles match this filter.</div>`;
+  $("#foot").textContent=`Showing ${rows.length} of ${vis.length}. Click a title for its description and to add your star rating and notes. Everything you change is saved to your private GitHub repo.`;
+}
+$("#plats").addEventListener("click",e=>{const b=e.target.closest(".pf");if(!b||b.disabled)return;plat=b.dataset.p;render()});
+$("#q").addEventListener("input",render);
+$("#status-filter").addEventListener("change",render);
+["#show-fam","#show-plus","#show-soft"].forEach(id=>$(id).addEventListener("change",render));
+$("#add-toggle").addEventListener("click",()=>{$("#add-form").hidden=!$("#add-form").hidden;if(!$("#add-form").hidden)$("#add-title").focus()});
+$("#list").addEventListener("change",e=>{const s=e.target.closest(".st");if(!s)return;saved.status[s.dataset.id]=s.value;persist();render()});
+$("#list").addEventListener("input",e=>{
+  const t=e.target.closest(".rv");if(!t)return;
+  const id=t.dataset.id;
+  if(t.value.trim())saved.reviews[id]=t.value;else delete saved.reviews[id];
+  persist();
+  const nt=document.querySelector(`[data-nt="${CSS.escape(id)}"]`);if(nt)nt.hidden=!hasNote(id);
+});
+// Hover preview of the rating about to be set
+$("#list").addEventListener("mouseover",e=>{const b=e.target.closest("[data-rate]");if(b)paintStars(b.closest(".stars"),+b.dataset.rate)});
+$("#list").addEventListener("mouseout",e=>{const box=e.target.closest(".stars");if(box&&!box.contains(e.relatedTarget))paintStars(box,saved.ratings[box.dataset.stars]||0)});
+$("#list").addEventListener("click",e=>{
+  const rb=e.target.closest("[data-rate]");
+  if(rb){const id=rb.dataset.id,v=+rb.dataset.rate;if(saved.ratings[id]===v)delete saved.ratings[id];else saved.ratings[id]=v;persist();render();
+    document.querySelector(`[data-rate="${v}"][data-id="${CSS.escape(id)}"]`)?.focus();return}
+  const cl=e.target.closest("[data-clear]");
+  if(cl){const id=cl.dataset.clear;delete saved.ratings[id];persist();render();document.querySelector(`[data-rate="0.5"][data-id="${CSS.escape(id)}"]`)?.focus();return}
+  const tb=e.target.closest("[data-open]");
+  if(tb){const id=tb.dataset.open;openDesc.has(id)?openDesc.delete(id):openDesc.add(id);render();document.querySelector(`[data-open="${CSS.escape(id)}"]`)?.focus();return}
+  const ask=e.target.closest("[data-ask]"),del=e.target.closest("[data-del]");
+  if(ask){pendingDelete=ask.dataset.ask;render();return}
+  if(del){saved.removed.push(del.dataset.del);pendingDelete=null;persist();render()}
+});
+$("#add-form").addEventListener("submit",e=>{
+  e.preventDefault();const title=$("#add-title").value.trim();if(!title)return;
+  const id=slug(title);saved.removed=saved.removed.filter(r=>r!==id);
+  saved.added.push({id,title,platforms:[$("#add-plat").value]});persist();$("#add-title").value="";render();
+});
+$("#export").addEventListener("click",()=>{
+  const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const csv=["Title,Platforms,Status,Notes,Description,My rating,My notes",...pool().sort((a,b)=>sortKey(a.title).localeCompare(sortKey(b.title))).map(g=>[g.title,g.platforms.map(p=>P[p]?.name||p).join("; "),cap(g.status),g.note,DESC[g.id],saved.ratings[g.id]||"",saved.reviews[g.id]||""].map(q).join(","))].join("\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"}));a.download="game-shelf.csv";a.click();
+});
+
+// ---------- GitHub sync ----------
+// Everything (game list + your statuses, ratings, notes) lives in a private repo and is
+// read/written through the GitHub API with a token kept in this browser only.
+const GH_KEY="game-shelf-gh", LIB_KEY="game-shelf-lib", DIRTY_KEY="game-shelf-dirty", DATA_REPO="Game-dashboard";
+const BLANK=()=>({status:{},added:[],removed:[],ratings:{},reviews:{}});
+let gh=null;try{gh=JSON.parse(localStorage.getItem(GH_KEY)||"null")}catch(e){}
+let dataSha=null,saving=false,timer=null,dirtyGen=0;
+const b64e=str=>{const b=new TextEncoder().encode(str);let o="";for(let i=0;i<b.length;i+=8192)o+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(o)};
+const b64d=b=>new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g,"")),c=>c.charCodeAt(0)));
+const api=(path,opt={})=>fetch(`https://api.github.com/repos/${encodeURIComponent(gh.owner)}/${DATA_REPO}/contents/${path}`,{cache:"no-store",...opt,headers:{Authorization:`Bearer ${gh.token}`,"X-GitHub-Api-Version":"2022-11-28",Accept:"application/vnd.github+json",...(opt.headers||{})}});
+const fail=(what,r)=>Object.assign(new Error(what),{status:r.status});
+function setSync(state,msg){const el=$("#sync");el.hidden=false;el.dataset.state=state;el.textContent=msg}
+function useLib(lib){SEED=lib.games||[];DESC=lib.desc||{}}
+async function pullLibrary(){
+  const r=await api("library.json",{headers:{Accept:"application/vnd.github.raw+json"}});
+  if(!r.ok)throw fail("library",r);
+  const lib=await r.json();useLib(lib);
+  try{localStorage.setItem(LIB_KEY,JSON.stringify(lib))}catch(e){}
+}
+async function pullData(){
+  const r=await api("my-data.json");
+  if(r.status===404){dataSha=null;return null}
+  if(!r.ok)throw fail("data",r);
+  const j=await r.json();dataSha=j.sha;return JSON.parse(b64d(j.content));
+}
+function markDirty(){
+  dirtyGen++;try{localStorage.setItem(DIRTY_KEY,"1")}catch(e){}
+  if(!gh)return;
+  setSync("busy","Saving…");clearTimeout(timer);timer=setTimeout(push,1200);
+}
+async function push(){
+  if(saving||!gh)return;saving=true;
+  try{
+    for(;;){
+      const gen=dirtyGen,body={message:"Update game shelf data",content:b64e(JSON.stringify(saved,null,1))};
+      if(dataSha)body.sha=dataSha;
+      let r=await api("my-data.json",{method:"PUT",body:JSON.stringify(body)});
+      if(r.status===409||r.status===422){ // the file changed elsewhere since we loaded it: take its latest version id and save over it
+        const g=await api("my-data.json");
+        if(g.ok){body.sha=dataSha=(await g.json()).sha;r=await api("my-data.json",{method:"PUT",body:JSON.stringify(body)})}
+      }
+      if(!r.ok)throw fail("save",r);
+      dataSha=(await r.json()).content.sha;
+      if(gen===dirtyGen){try{localStorage.removeItem(DIRTY_KEY)}catch(e){};break}
+    }
+    setSync("ok","Synced");
+  }catch(e){setSync("warn",e.status===401?"Token rejected — disconnect and reconnect":e.status?"Couldn't save to GitHub ("+e.status+") — kept on this device":"Offline — saved on this device, will retry")}
+  finally{saving=false}
+}
+// Pull the latest from GitHub, unless this device has changes that haven't been sent yet (send those instead).
+async function sync(){
+  if(!gh||saving)return;
+  try{
+    if(localStorage.getItem(DIRTY_KEY)){
+      if(!dataSha){const g=await api("my-data.json");if(g.ok)dataSha=(await g.json()).sha}
+      await push();return;
+    }
+    const d=await pullData();
+    if(localStorage.getItem(DIRTY_KEY))return; // edited while loading
+    const next={...BLANK(),...(d||{})};
+    if(JSON.stringify(next)!==JSON.stringify(saved)){saved=next;try{localStorage.setItem(KEY,JSON.stringify(saved))}catch(e){};render()}
+    setSync("ok","Synced");
+  }catch(e){setSync("warn",e.status===401?"Token rejected — disconnect and reconnect":e.status?"Couldn't reach your data ("+e.status+")":"Offline — showing this device's copy")}
+}
+function showConnect(msg){
+  $("#app").hidden=true;$("#sub").hidden=true;$("#sync").hidden=true;$("#connect").hidden=false;
+  if(!$("#gh-owner").value)$("#gh-owner").value=gh?.owner||(location.hostname.endsWith(".github.io")?location.hostname.split(".")[0]:"");
+  $("#connect-err").hidden=!msg;$("#connect-err").textContent=msg||"";
+}
+function showApp(){$("#connect").hidden=true;$("#app").hidden=false;$("#sub").hidden=false}
+const connectMsg=e=>e.status===401?"GitHub didn't accept that token. Check it was copied in full and hasn't expired.":e.status===404||e.status===403?"That token can't see the Game-dashboard repo for this username. Check the username and that the token includes that repo with Contents access.":"Couldn't reach GitHub. Check your connection and try again.";
+$("#connect").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const btn=$("#connect-btn");btn.disabled=true;btn.textContent="Connecting…";
+  gh={owner:$("#gh-owner").value.trim(),token:$("#gh-token").value.trim()};
+  try{await pullLibrary();localStorage.setItem(GH_KEY,JSON.stringify(gh));$("#gh-token").value="";showApp();render();setSync("busy","Syncing…");await sync()}
+  catch(err){gh=null;showConnect(connectMsg(err))}
+  finally{btn.disabled=false;btn.textContent="Connect"}
+});
+let discArmed=false;
+$("#disconnect").addEventListener("click",()=>{
+  if(!discArmed){discArmed=true;$("#disconnect").textContent=localStorage.getItem(DIRTY_KEY)?"Unsaved changes will be lost — click again to disconnect":"Click again to disconnect";setTimeout(()=>{discArmed=false;$("#disconnect").textContent="Disconnect this device"},5000);return}
+  [GH_KEY,LIB_KEY,KEY,DIRTY_KEY].forEach(k=>localStorage.removeItem(k));location.reload();
+});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")sync()});
+addEventListener("online",sync);
+async function boot(){
+  if(!gh||!gh.token){gh=null;showConnect();return}
+  showApp();
+  try{const lib=JSON.parse(localStorage.getItem(LIB_KEY)||"null");if(lib)useLib(lib)}catch(e){}
+  render();setSync("busy","Syncing…");
+  try{await pullLibrary();render()}
+  catch(e){
+    if(e.status===401||e.status===404||e.status===403){const o=gh.owner;gh=null;$("#gh-owner").value=o;showConnect(connectMsg(e));return}
+    setSync("warn","Offline — showing this device's copy");return;
+  }
+  await sync();
+}
+boot();
+</script>
+</body>
+</html>
