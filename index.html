@@ -57,6 +57,8 @@ input,select,button{font:inherit;color:inherit}
 .t{min-width:0}
 .t b{font-weight:600}
 .t .note{display:block;color:var(--muted);font-size:13px}
+.len{display:block;margin-top:2px;font:500 12px var(--mono);color:var(--muted)}
+.len b{font-weight:500;color:var(--ink)}
 .tb{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:left;cursor:pointer}
 .tb::after{content:"▸";display:inline-block;margin-left:6px;color:var(--muted);font-size:12px;transition:transform .15s}
 .tb[aria-expanded="true"]::after{transform:rotate(90deg)}
@@ -137,6 +139,15 @@ input,select,button{font:inherit;color:inherit}
       <option value="finished">Finished</option>
       <option value="dropped">Dropped</option>
     </select>
+    <select id="length-filter" aria-label="Filter by length (main story)">
+      <option value="">Any length</option>
+      <option value="u5">Under 5 hours</option>
+      <option value="5-15">5 to 15 hours</option>
+      <option value="15-30">15 to 30 hours</option>
+      <option value="30p">30+ hours</option>
+      <option value="endless">Endless</option>
+      <option value="none">No time yet</option>
+    </select>
     <label class="tg"><input type="checkbox" id="show-fam"> Family-shared</label>
     <label class="tg"><input type="checkbox" id="show-plus"> PS Plus</label>
     <label class="tg"><input type="checkbox" id="show-soft"> Software</label>
@@ -159,6 +170,8 @@ input,select,button{font:inherit;color:inherit}
 let SEED=[];
 // Short description for each title, keyed by id. Shown when a title is clicked.
 let DESC={};
+// Time to beat from HowLongToBeat, keyed by id: [main story, main + sides, completionist] in hours (null = no data), or "endless".
+let HLTB={};
 const PLATS=[
   {id:"switch",name:"Switch",c:"var(--sw)"},
   {id:"steam",name:"Steam",c:"var(--steam)"},
@@ -186,6 +199,11 @@ const slug=s=>s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").repla
 const sortKey=t=>t.toLowerCase().replace(/^(the|a)\s+/,"");
 const cap=s=>s[0].toUpperCase()+s.slice(1);
 const fmtRating=r=>r?`${r} / 5`:"Not rated";
+// Game length (HowLongToBeat). The length filter goes by main story time.
+const fmtH=h=>h==null?"—":(h>=100?Math.round(h):Math.round(h*10)/10)+"h";
+const lenBucket=id=>{const t=HLTB[id];if(t==="endless")return "endless";const m=Array.isArray(t)?t[0]:null;return m==null?"none":m<5?"u5":m<15?"5-15":m<30?"15-30":"30p"};
+const lenHtml=id=>{const t=HLTB[id];if(!t)return "";if(t==="endless")return `<span class="len" title="No set length">⏱ <b>Endless</b></span>`;
+  return `<span class="len" title="Average time to beat, from HowLongToBeat">⏱ Main <b>${fmtH(t[0])}</b> · + Sides <b>${fmtH(t[1])}</b> · Completionist <b>${fmtH(t[2])}</b></span>`};
 const hasNote=id=>!!(saved.reviews[id]||"").trim();
 // Fill for star n (1-5) at rating r: 0%, 50% or 100%
 const fillOf=(r,n)=>r>=n?"100%":r>=n-.5?"50%":"0%";
@@ -223,8 +241,8 @@ function render(){
   $("#total").textContent=games.filter(g=>g.kind!=="software"&&ownedOf(g)).length;
   const vis=pool();
   renderPlats();
-  const q=$("#q").value.trim().toLowerCase(), sf=$("#status-filter").value;
-  const rows=vis.filter(g=>(!plat||g.platforms.includes(plat))&&(!q||g.title.toLowerCase().includes(q))&&(!sf||g.status===sf))
+  const q=$("#q").value.trim().toLowerCase(), sf=$("#status-filter").value, lf=$("#length-filter").value;
+  const rows=vis.filter(g=>(!plat||g.platforms.includes(plat))&&(!q||g.title.toLowerCase().includes(q))&&(!sf||g.status===sf)&&(!lf||lenBucket(g.id)===lf))
     .sort((a,b)=>sortKey(a.title).localeCompare(sortKey(b.title)));
   $("#list").innerHTML=rows.length?rows.map(g=>{
     const chips=g.platforms.map(p=>`<span class="chip" style="--c:${P[p]?.c||"var(--muted)"}">${esc(P[p]?.name||p)}</span>`).join("");
@@ -233,13 +251,14 @@ function render(){
     const d=DESC[g.id], isOpen=openDesc.has(g.id), r=saved.ratings[g.id];
     const marks=`${r?`<span class="rt" title="My rating">★ ${r}</span>`:""}<span class="nt" data-nt="${esc(g.id)}" title="Has notes" ${hasNote(g.id)?"":"hidden"}>✎ note</span>`;
     const title=`<button class="tb" type="button" data-open="${esc(g.id)}" aria-expanded="${isOpen?"true":"false"}"><b>${esc(g.title)}</b></button>${marks}`;
-    return `<div class="row"><div class="t">${title}${g.kind==="software"?`<span class="flag">Software</span>`:""}${!ownedOf(g)?`<span class="flag">${g.platforms.includes("steamfam")?"Family-shared":"PS Plus"}</span>`:""}${g.note?`<span class="note">${esc(g.note)}</span>`:""}</div><div class="chips">${chips}</div><div style="display:flex;gap:4px;align-items:center">${sel}${del}</div>${isOpen?`<div class="desc">${d?`<p>${esc(d)}</p>`:""}${reviewHtml(g)}</div>`:""}</div>`;
+    return `<div class="row"><div class="t">${title}${g.kind==="software"?`<span class="flag">Software</span>`:""}${!ownedOf(g)?`<span class="flag">${g.platforms.includes("steamfam")?"Family-shared":"PS Plus"}</span>`:""}${g.note?`<span class="note">${esc(g.note)}</span>`:""}${lenHtml(g.id)}</div><div class="chips">${chips}</div><div style="display:flex;gap:4px;align-items:center">${sel}${del}</div>${isOpen?`<div class="desc">${d?`<p>${esc(d)}</p>`:""}${reviewHtml(g)}</div>`:""}</div>`;
   }).join(""):`<div class="empty">No titles match this filter.</div>`;
   $("#foot").textContent=`Showing ${rows.length} of ${vis.length}. Click a title for its description and to add your star rating and notes. Everything you change is saved to your private GitHub repo.`;
 }
 $("#plats").addEventListener("click",e=>{const b=e.target.closest(".pf");if(!b||b.disabled)return;plat=b.dataset.p;render()});
 $("#q").addEventListener("input",render);
 $("#status-filter").addEventListener("change",render);
+$("#length-filter").addEventListener("change",render);
 ["#show-fam","#show-plus","#show-soft"].forEach(id=>$(id).addEventListener("change",render));
 $("#add-toggle").addEventListener("click",()=>{$("#add-form").hidden=!$("#add-form").hidden;if(!$("#add-form").hidden)$("#add-title").focus()});
 $("#list").addEventListener("change",e=>{const s=e.target.closest(".st");if(!s)return;saved.status[s.dataset.id]=s.value;persist();render()});
@@ -272,7 +291,7 @@ $("#add-form").addEventListener("submit",e=>{
 });
 $("#export").addEventListener("click",()=>{
   const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
-  const csv=["Title,Platforms,Status,Notes,Description,My rating,My notes",...pool().sort((a,b)=>sortKey(a.title).localeCompare(sortKey(b.title))).map(g=>[g.title,g.platforms.map(p=>P[p]?.name||p).join("; "),cap(g.status),g.note,DESC[g.id],saved.ratings[g.id]||"",saved.reviews[g.id]||""].map(q).join(","))].join("\n");
+  const csv=["Title,Platforms,Status,Notes,Description,My rating,My notes,Main story (h),Main + sides (h),Completionist (h)",...pool().sort((a,b)=>sortKey(a.title).localeCompare(sortKey(b.title))).map(g=>[g.title,g.platforms.map(p=>P[p]?.name||p).join("; "),cap(g.status),g.note,DESC[g.id],saved.ratings[g.id]||"",saved.reviews[g.id]||"",...(HLTB[g.id]==="endless"?["Endless","",""]:(HLTB[g.id]||["","",""]).map(v=>v??""))].map(q).join(","))].join("\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"}));a.download="game-shelf.csv";a.click();
 });
 
@@ -288,7 +307,7 @@ const b64d=b=>new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g,""))
 const api=(path,opt={})=>fetch(`https://api.github.com/repos/${encodeURIComponent(gh.owner)}/${DATA_REPO}/contents/${path}`,{cache:"no-store",...opt,headers:{Authorization:`Bearer ${gh.token}`,"X-GitHub-Api-Version":"2022-11-28",Accept:"application/vnd.github+json",...(opt.headers||{})}});
 const fail=(what,r)=>Object.assign(new Error(what),{status:r.status});
 function setSync(state,msg){const el=$("#sync");el.hidden=false;el.dataset.state=state;el.textContent=msg}
-function useLib(lib){SEED=lib.games||[];DESC=lib.desc||{}}
+function useLib(lib){SEED=lib.games||[];DESC=lib.desc||{};HLTB=lib.hltb||{}}
 async function pullLibrary(){
   const r=await api("library.json",{headers:{Accept:"application/vnd.github.raw+json"}});
   if(!r.ok)throw fail("library",r);
